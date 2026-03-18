@@ -1,5 +1,5 @@
 server:
-    address: 100.81.196.103
+    #address: 100.81.196.103
     port: 8008
 
 spring:
