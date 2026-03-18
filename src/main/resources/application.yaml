@@ -1,0 +1,32 @@
+server:
+    address: 100.81.196.103
+    port: 8008
+
+spring:
+  application:
+    name: stock_report
+  datasource:
+    url: jdbc:mariadb://100.81.196.103:3379/stock_report_db # TODO: 로컬로 맞게 수정
+    username: root
+    password: SqlDba-1
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  report:
+    storage-root: /home/paralies/git/SKALA/project/stock_report_project/storage/reports # TODO: 수정 필요!
+
+  jwt:
+    secret: Zjg3YmY5YjQtY2M5MS00OTVlLTlhOGQtMDJmMjZhNDhlMWVkYzJlNWIyYzAtYmJmNy00YmU3LTkyMTItZTdmZDA3MjZiNTE4
+    issuer: simple-auth-server
+    cookie-name: ACCESS_TOKEN
+
+frontend:
+  origin: http://100.81.196.103:5001
