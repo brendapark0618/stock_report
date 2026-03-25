@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sk011-stock
+  namespace: skala-practice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring
+  template:
+    metadata:
+      labels:
+        app: spring
+    spec:
+      containers:
+      - name: skala-stock-api
+        image: amdp-registry.skala-ai.com/skala26a-ai1/skala-stock-api@sha256:28d3674c2d03be1e3221ff6917b6cc42ac0cfc456867273710d3fcb617d2a34c
+        ports:
+        - containerPort: 9080
