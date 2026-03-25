@@ -1,43 +1,62 @@
 name: springboot-backend-ci-cd
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
+
 permissions:
   contents: read
+
 env:
-  HARBOR_REGISTRY: ${{ vars.HARBOR_REGISTRY }}
-  HARBOR_PROJECT: ${{ vars.HARBOR_PROJECT }}
-  IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+  # [변수화] 네임스페이스 및 이미지 주소 (보안 및 관리 용이)
+  NAMESPACE: skala-practice
+  HARBOR_REGISTRY: amdp-registry.skala-ai.com
+  HARBOR_PROJECT: skala26a-ai1
+  IMAGE_NAME: skala-stock-api
+  # 011번님이 강조하신 정확한 SHA 주소
+  IMAGE_FULL_PATH: "amdp-registry.skala-ai.com/skala26a-ai1/skala-stock-api@sha256:28d3674c2d03be1e3221ff6917b6cc42ac0cfc456867273710d3fcb617d2a34c"
+
 jobs:
-  ci:
-    name: Build Image and Push to Harbor
+  ci-cd:
+    name: Build, Push and Deploy to K8s
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-      - name: Compute image tag
-        id: meta
-        run: |
-          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
-          echo "full_image=${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
       - name: Login to Harbor
         uses: docker/login-action@v3
         with:
           registry: ${{ env.HARBOR_REGISTRY }}
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build and Push to Harbor
+
+      - name: Build and Push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ${{ steps.meta.outputs.full_image }}
             ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_FULL_PATH }}
+
+      - name: Set Kubernetes Context
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Deploy to K8s
+        run: |
+          # 모든 경로와 네임스페이스를 변수로 처리하여 보안 강화
+          # 1. MariaDB 우선 배포
+          kubectl apply -f mariadb-deploy.yml -n ${{ env.NAMESPACE }}
+          
+          # 2. 백엔드 앱 배포
+          kubectl apply -f deployment.yml -n ${{ env.NAMESPACE }}
+          
+          # 3. 배포 상태 갱신 (새 이미지 즉시 반영)
+          kubectl rollout restart deployment/sk011-stock -n ${{ env.NAMESPACE }}
