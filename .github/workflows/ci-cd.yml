@@ -8,17 +8,17 @@ permissions:
   contents: read
 
 env:
-  # [변수화] 네임스페이스 및 이미지 주소 (보안 및 관리 용이)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   NAMESPACE: skala-practice
   HARBOR_REGISTRY: amdp-registry.skala-ai.com
   HARBOR_PROJECT: skala26a-ai1
   IMAGE_NAME: skala-stock-api
-  # 011번님이 강조하신 정확한 SHA 주소
-  IMAGE_FULL_PATH: "amdp-registry.skala-ai.com/skala26a-ai1/skala-stock-api@sha256:28d3674c2d03be1e3221ff6917b6cc42ac0cfc456867273710d3fcb617d2a34c"
+  # AWS EKS 설정 추가
+  AWS_REGION: ap-northeast-2
+  EKS_CLUSTER_NAME: skala-2025
 
 jobs:
   ci-cd:
-    name: Build, Push and Deploy to K8s
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -41,22 +41,25 @@ jobs:
           push: true
           tags: |
             ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_FULL_PATH }}
 
-      - name: Set Kubernetes Context
-        uses: azure/k8s-set-context@v3
+      # [핵심] AWS 자격 증명 설정 (이게 있어야 EKS에 접속 가능합니다)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # [핵심] EKS 접속용 kubeconfig 업데이트
+      - name: Update Kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
       - name: Deploy to K8s
         run: |
-          # 모든 경로와 네임스페이스를 변수로 처리하여 보안 강화
-          # 1. MariaDB 우선 배포
+          # 네임스페이스가 없으면 생성 (EKS 환경 안전장치)
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          
           kubectl apply -f mariadb-deploy.yml -n ${{ env.NAMESPACE }}
-          
-          # 2. 백엔드 앱 배포
           kubectl apply -f deployment.yml -n ${{ env.NAMESPACE }}
-          
-          # 3. 배포 상태 갱신 (새 이미지 즉시 반영)
           kubectl rollout restart deployment/sk011-stock -n ${{ env.NAMESPACE }}
