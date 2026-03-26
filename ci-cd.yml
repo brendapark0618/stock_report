@@ -1,34 +1,27 @@
 name: springboot-backend-ci-cd
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  HARBOR_REGISTRY: ${{ vars.HARBOR_REGISTRY }}
-  HARBOR_PROJECT: ${{ vars.HARBOR_PROJECT }}
-  IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NAMESPACE: skala-practice
+  HARBOR_REGISTRY: amdp-registry.skala-ai.com
+  HARBOR_PROJECT: skala26a-ai1
+  IMAGE_NAME: skala-stock-api
+  AWS_REGION: ap-northeast-2
+  EKS_CLUSTER_NAME: skala-2025
 
 jobs:
   ci-cd:
-    name: Build, Push and Deploy to K8s
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Compute image tag
-        id: meta
-        run: |
-          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
-          echo "full_image=${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Harbor
         uses: docker/login-action@v3
@@ -40,24 +33,31 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and Push to Harbor
+      - name: Build and Push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ${{ steps.meta.outputs.full_image }}
             ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Set Kubernetes Context
-        uses: azure/k8s-set-context@v3
+      # [핵심] 1. AWS 자격 증명 설정 (Secrets 사용)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
+      # [핵심] 2. EKS 접속용 kubeconfig 자동 생성 (이게 'base64' 에러를 해결합니다)
+      - name: Update Kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      # [핵심] 3. 실제 배포 진행
       - name: Deploy to K8s
         run: |
-          kubectl apply -f deployment.yml -n skala3-ai1
-          kubectl apply -f sk011-service.yml -n skala3-ai1
-          kubectl apply -f sk011-ingress.yml -n skala3-ai1
-          kubectl rollout restart deployment/sk011-stock -n skala3-ai1
+          kubectl apply -f mariadb-deploy.yml -n ${{ env.NAMESPACE }}
+          kubectl apply -f deployment.yml -n ${{ env.NAMESPACE }}
+          # 최신 이미지 반영을 위한 롤아웃 재시작
+          kubectl rollout restart deployment/sk011-stock -n ${{ env.NAMESPACE }}
