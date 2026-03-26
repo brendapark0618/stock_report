@@ -9,7 +9,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  NAMESPACE: skala-practice
+  NAMESPACE: skala3-ai1
   HARBOR_REGISTRY: amdp-registry.skala-ai.com
   HARBOR_PROJECT: skala26a-ai1
   IMAGE_NAME: skala-stock-api
