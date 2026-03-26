@@ -1,63 +1,19 @@
-name: springboot-backend-ci-cd
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  NAMESPACE: skala-practice
-  HARBOR_REGISTRY: amdp-registry.skala-ai.com
-  HARBOR_PROJECT: skala26a-ai1
-  IMAGE_NAME: skala-stock-api
-  AWS_REGION: ap-northeast-2
-  EKS_CLUSTER_NAME: skala-2025
-
-jobs:
-  ci-cd:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Login to Harbor
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.HARBOR_REGISTRY }}
-          username: ${{ secrets.HARBOR_USERNAME }}
-          password: ${{ secrets.HARBOR_PASSWORD }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and Push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest
-
-      # [핵심] 1. AWS 자격 증명 설정 (Secrets 사용)
+# [삭제] azure/k8s-set-context 단계는 아예 지워버리세요!
+      
+      # [대체] AWS 인증 후 직접 kubeconfig 생성 (이게 정석입니다)
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ap-northeast-2
 
-      # [핵심] 2. EKS 접속용 kubeconfig 자동 생성 (이게 'base64' 에러를 해결합니다)
       - name: Update Kubeconfig for EKS
         run: |
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+          aws eks update-kubeconfig --region ap-northeast-2 --name skala-2025
 
-      # [핵심] 3. 실제 배포 진행
       - name: Deploy to K8s
         run: |
           kubectl apply -f mariadb-deploy.yml -n ${{ env.NAMESPACE }}
           kubectl apply -f deployment.yml -n ${{ env.NAMESPACE }}
-          # 최신 이미지 반영을 위한 롤아웃 재시작
           kubectl rollout restart deployment/sk011-stock -n ${{ env.NAMESPACE }}
