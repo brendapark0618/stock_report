@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sk011-ingress-test
+  namespace: skala-practice
+  annotations:
+    # 이 부분이 있어야 /sk011/info 주소를 앱의 /info로 연결해줍니다.
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: public-nginx
+  rules:
+  - host: ingress.skala26.project.skala-ai.com
+    http:
+      paths:
+      - path: /sk011(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: sk011-stock
+            port:
+              number: 8080
