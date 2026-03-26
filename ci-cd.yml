@@ -24,6 +24,14 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # 1. AWS 인증 추가 (이게 없어서 에러 났던 겁니다!)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
       - name: Compute image tag
         id: meta
         run: |
@@ -49,21 +57,24 @@ jobs:
             ${{ steps.meta.outputs.full_image }}
             ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest
 
-      # [중요] CD 단계: GitHub이 쿠버네티스 서버에 접속할 수 있도록 인증 설정을 먼저 합니다.
+      # 2. 쿠버네티스 컨텍스트 설정
       - name: Set Kubernetes Context
         uses: azure/k8s-set-context@v3
         with:
           method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG }} # GitHub Settings에 등록해야 함!
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
-      # [중요] 자동 배포 실행
+      # 3. 자동 배포 (인그레스 파일 추가!)
       - name: Deploy to K8s
         run: |
-          # 1. MariaDB 먼저 배포 (순서가 중요해요!)
+          # MariaDB 배포
           kubectl apply -f mariadb-deploy.yml -n skala-practice
           
-          # 2. 백엔드 앱 배포
+          # 백엔드 앱 배포
           kubectl apply -f deployment.yml -n skala-practice
           
-          # 3. 최신 이미지 즉시 반영을 위한 재시작
+          # [추가] 인그레스 배포 (이게 있어야 외부에서 접속됩니다!)
+          kubectl apply -f sk011-ingress.yml -n skala-practice
+          
+          # 최신 이미지 즉시 반영
           kubectl rollout restart deployment/sk011-stock -n skala-practice
