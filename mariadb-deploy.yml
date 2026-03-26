@@ -23,14 +23,4 @@ spec:
         - name: MARIADB_DATABASE
           value: "skala_stock" # DB 이름 확인!
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: sk011-mariadb-svc
-  namespace: skala-practice
-spec:
-  selector:
-    app: mariadb
-  ports:
-  - port: 3306
-    targetPort: 330
+
