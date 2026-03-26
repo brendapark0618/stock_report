@@ -57,6 +57,9 @@ jobs:
       # [중요] 3. 실제 배포
       - name: Deploy to K8s
         run: |
+          kubectl apply -f pvc.yml -n ${{ env.NAMESPACE }}
           kubectl apply -f mariadb-deploy.yml -n ${{ env.NAMESPACE }}
           kubectl apply -f deployment.yml -n ${{ env.NAMESPACE }}
+          kubectl rollout restart deployment/sk011-stock -n ${{ env.NAMESPACE }}
+          kubectl apply -f service.yml -n ${{ env.NAMESPACE }}
           kubectl rollout restart deployment/sk011-stock -n ${{ env.NAMESPACE }}

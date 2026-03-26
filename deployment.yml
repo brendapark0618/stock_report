@@ -18,3 +18,13 @@ spec:
         image: amdp-registry.skala-ai.com/skala26a-ai1/skala-stock-api@sha256:28d3674c2d03be1e3221ff6917b6cc42ac0cfc456867273710d3fcb617d2a34c
         ports:
         - containerPort: 9080
+        # [수정] 컨테이너 안의 어느 폴더를 영구 저장소로 쓸지 지정
+        volumeMounts:
+        - name: stock-storage
+          mountPath: /data
+      
+      # [수정] 위에서 정의한 'stock-storage'가 어떤 PVC를 쓸지 연결 (containers와 같은 레벨)
+      volumes:
+      - name: stock-storage
+        persistentVolumeClaim:
+          claimName: sk011-stock-pvc
