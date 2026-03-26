@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sk011-ingress
+  namespace: skala3-ai1
+spec:
+  ingressClassName: public-nginx
+  rules:
+  - host: sk011.project.skala-ai.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sk011-service
+            port:
+              number: 80
